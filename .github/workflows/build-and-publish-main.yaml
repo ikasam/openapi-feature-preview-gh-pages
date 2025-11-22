@@ -6,11 +6,6 @@ on:
       - main
   workflow_dispatch: ~
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -20,9 +15,32 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      actions: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Get latest successful workflow run id
+        id: latest-run-id
+        run: |
+          echo 'run-id='$(gh run list --limit 1 --workflow "${{ env.WORKFLOW }}" --status "${{ env.STATUS }}" --json databaseId -q '.[].databaseId') >> "$GITHUB_OUTPUT"
+        env:
+          STATUS: 'success'
+          WORKFLOW: 'Build and Publish main'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifact
+        continue-on-error: true
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: github-pages
+          path: dist
+          run-id: ${{ steps.latest-run-id.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: ./.github/actions/setup-pnpm-and-install
 
