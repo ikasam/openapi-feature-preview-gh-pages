@@ -33,14 +33,22 @@ jobs:
           WORKFLOW: 'Build and Publish main'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download artifact
+      - name: Download latest artifact
+        id: latest-artifact
         continue-on-error: true
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: github-pages
-          path: dist
           run-id: ${{ steps.latest-run-id.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract downloaded artifact
+        if: steps.latest-artifact.outcome == 'success'
+        run: mkdir -p dist && tar -xvf ${{ steps.latest-artifact.outputs.download-path }}/artifact.tar -C dist
+
+      - name: Check downloaded artifact files
+        if: steps.latest-artifact.outcome == 'success'
+        run: ls -la dist
 
       - uses: ./.github/actions/setup-pnpm-and-install
 
