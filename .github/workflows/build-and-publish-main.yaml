@@ -12,12 +12,8 @@ concurrency:
 
 jobs:
   build:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
-      pages: write
       actions: read
       id-token: write
     runs-on: ubuntu-latest
@@ -44,16 +40,19 @@ jobs:
 
       - name: Extract downloaded artifact
         if: steps.latest-artifact.outcome == 'success'
-        run: mkdir -p dist && tar -xvf ${{ steps.latest-artifact.outputs.download-path }}/artifact.tar -C dist
+        run: tar -xvf ${{ steps.latest-artifact.outputs.download-path }}/artifact.tar -C ${{ runner.temp }}
 
       - name: Check downloaded artifact files
         if: steps.latest-artifact.outcome == 'success'
-        run: ls -la dist
+        run: ls -la ${{ runner.temp }}
 
       - uses: ./.github/actions/setup-pnpm-and-install
 
       - name: Build API Docs
         run: pnpm run build
+
+      - name: Move into latest artifact
+        run: mv dist ${{ runner.temp }}/${${{ github.ref_name }}%%/*}
 
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
@@ -61,8 +60,18 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
-          path: dist
+          path: ${{ runner.temp }}
 
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
